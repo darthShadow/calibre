@@ -355,7 +355,12 @@ class Connection(apsw.Connection):  # {{{
         self.fts_dbpath = self.notes_dbpath = None
 
         self.setbusytimeout(self.BUSY_TIMEOUT)
-        self.execute('PRAGMA cache_size=-5000; PRAGMA temp_store=2; PRAGMA foreign_keys=ON;')
+        self.execute('PRAGMA cache_size=-1048576;')
+        self.execute('PRAGMA foreign_keys=ON;')
+        # self.execute('PRAGMA synchronous=NORMAL') # Only safe with WAL journaling
+        # self.execute('PRAGMA mmap_size=4000000000') # 4 GB
+        self.execute('PRAGMA temp_store=2')
+        print("Custom SQL Improvements")
 
         encoding = next(self.execute('PRAGMA encoding'))[0]
         self.createcollation('PYNOCASE', partial(pynocase,
