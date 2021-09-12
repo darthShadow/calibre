@@ -355,12 +355,12 @@ class Connection(apsw.Connection):  # {{{
         self.fts_dbpath = self.notes_dbpath = None
 
         self.setbusytimeout(self.BUSY_TIMEOUT)
-        self.execute('PRAGMA cache_size=-1048576;')
+        prints("Custom SQL Improvements")
+        self.execute('PRAGMA cache_size=-1048576;') # 1024 * 1024 = 1 GB Cache
         self.execute('PRAGMA foreign_keys=ON;')
         # self.execute('PRAGMA synchronous=NORMAL') # Only safe with WAL journaling
-        # self.execute('PRAGMA mmap_size=4000000000') # 4 GB
-        self.execute('PRAGMA temp_store=2')
-        print("Custom SQL Improvements")
+        self.execute('PRAGMA mmap_size=4000000000;') # 4 GB
+        self.execute('PRAGMA temp_store=2;')
 
         encoding = next(self.execute('PRAGMA encoding'))[0]
         self.createcollation('PYNOCASE', partial(pynocase,
@@ -388,12 +388,21 @@ class Connection(apsw.Connection):  # {{{
         self.createaggregatefunction('aum_sortconcat',
                 AumSortedConcatenate, 4)
 
+    def _log(self, statement):
+        with open("C:\\Users\\sk\\calibre.log", "a") as calibre_log:
+            calibre_log.write(statement)
+            calibre_log.write("\n")
+            calibre_log.flush()
+
     def create_dynamic_filter(self, name):
         f = DynamicFilter(name)
         self.createscalarfunction(name, f, 1)
 
     def get(self, *args, **kw):
+        start = time.monotonic()
         ans = self.cursor().execute(*args)
+        time_taken = float(time.monotonic() - start)
+        self._log("[{0:.2f}] Time Taken for Get Query : {1}".format(time_taken, *args))
         if kw.get('all', True):
             return ans.fetchall()
         with suppress(StopIteration, IndexError):
@@ -415,12 +424,19 @@ class Connection(apsw.Connection):  # {{{
         return ans
 
     def execute(self, sql, bindings=None):
-        cursor = self.cursor()
-        return cursor.execute(sql, bindings)
+        start = time.monotonic()
+        result = self.cursor().execute(sql, bindings)
+        time_taken = float(time.monotonic() - start)
+        self._log("[{0:.2f}] Time Taken for Execute Query : {1}".format(time_taken, sql))
+        return result
 
     def executemany(self, sql, sequence_of_bindings):
         with self:  # Disable autocommit mode, for performance
-            return self.cursor().executemany(sql, sequence_of_bindings)
+            start = time.monotonic()
+            result = self.cursor().executemany(sql, sequence_of_bindings)
+            time_taken = float(time.monotonic() - start)
+            self._log("[{0:.2f}] Time Taken for ExecuteMany Query : {1}".format(time_taken, sql))
+            return result
 
 # }}}
 
